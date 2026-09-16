@@ -115,14 +115,25 @@ class CathodicProtectionEnv(gym.Env):
                 dtype=np.float32,
             )
         elif self.action_mode == "continuous":
-            # SAC는 0~1로 정규화된 Observation 사용
+            # ----------------------------------------------------
+            # SAC Observation
+            #
+            # [
+            #   출력전압,
+            #   출력전류,
+            #   방식전위,
+            #   누적 제어전류 영향(control_current_offset)
+            # ]
+            #
+            # 모두 0~1 범위로 정규화해서 사용한다.
+            # ----------------------------------------------------
             observation_low = np.zeros(
-                3,
+                4,
                 dtype=np.float32
             )
 
             observation_high = np.ones(
-                3,
+                4,
                 dtype=np.float32
             )
     
@@ -246,11 +257,50 @@ class CathodicProtectionEnv(gym.Env):
                 MAX_PIPE_POTENTIAL - MIN_PIPE_POTENTIAL
             )
 
+            # ----------------------------------------------------
+            # control_current_offset 정규화
+            #
+            # 현재 V1에서 한 Episode는 20 Step이고
+            # SAC 최대 Delta_V = ±0.05V
+            #
+            # Current Control Gain = 0.17 A/V 이므로
+            #
+            # 1 Step 최대 변화:
+            # 0.17 × 0.05 = 0.0085 A
+            #
+            # 20 Step 최대 누적:
+            # 0.0085 × 20 = 0.17 A
+            #
+            # 따라서 진단 실험에서는
+            # offset 범위를 -0.20 ~ +0.20 A로 잡는다.
+            # ----------------------------------------------------
+
+            OFFSET_MIN = -0.20
+            OFFSET_MAX = +0.20
+
+            normalized_offset = (
+                self.environment_model.control_current_offset
+                - OFFSET_MIN
+            ) / (
+                OFFSET_MAX - OFFSET_MIN
+            )
+
+            # 혹시 범위를 벗어나더라도
+            # Observation Space 0~1을 위반하지 않도록 제한
+            normalized_offset = float(
+                np.clip(
+                    normalized_offset,
+                    0.0,
+                    1.0,
+                )
+            )
+
             return np.array(
                 [
                     normalized_voltage,
                     normalized_current,
-                    normalized_potential
+                    normalized_potential,
+                    normalized_offset,
                 ],
                 dtype=np.float32,
             )

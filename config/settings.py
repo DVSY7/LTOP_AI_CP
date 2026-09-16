@@ -66,7 +66,7 @@ INITIAL_PIPE_POTENTIAL: float = -700.0
 # ============================================================
 
 # 한 에피소드에서 실행할 최대 제어 횟수
-MAX_EPISODE_STEPS: int = 50
+MAX_EPISODE_STEPS: int = 20
 
 
 # ============================================================
@@ -103,7 +103,7 @@ ACTION_TO_DELTA_VOLTAGE: dict[int, float] = {
 # EnvironmentModel의 Model Validity Guard가
 # 최종 전압 범위를 다시 제한한다.
 #
-SAC_MAX_DELTA_VOLTAGE: float = 0.20
+SAC_MAX_DELTA_VOLTAGE: float = 0.05
 
 # ============================================================
 # 재현성 설정
@@ -117,7 +117,7 @@ DEFAULT_RANDOM_SEED: int = 42
 # ============================================================
 
 # 1차 프로토타입 학습 횟수
-TOTAL_TRAINING_STEPS: int = 100_000
+TOTAL_TRAINING_STEPS: int = 10_000
 
 # 학습된 모델 저장 경로
 DQN_MODEL_PATH: str = "models/trained/cathodic_dqn"
