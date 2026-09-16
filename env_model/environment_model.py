@@ -22,15 +22,20 @@ class EnvironmentModel:
     """
 
     def __init__(self):
-
-        # 전류 예측 모델
         self.current_model = CurrentModel()
-
-        # TB 예측 모델
         self.tb_model = TBModel()
 
-        # TB 과거 이력 저장용
+        # TB 과거 이력
         self.tb_history = []
+
+        # ----------------------------------------------------
+        # 전압 제어로 인해 만들어진 "지속적인 전류 운전점 변화"
+        #
+        # 기존에는 delta_i_action이 해당 Step에서만 TB에 영향을 줬다.
+        # 이제는 action으로 만들어진 전류 변화량을 누적해서,
+        # 운전점이 바뀐 효과가 다음 Step에도 유지되도록 한다.
+        # ----------------------------------------------------
+        self.control_current_offset = 0.0
 
 
     # ========================================================
@@ -71,6 +76,9 @@ class EnvironmentModel:
             initial_tb_history
         )
 
+        # 새로운 Episode이므로
+        # 이전 Episode의 제어효과는 제거
+        self.control_current_offset = 0.0
 
     # ========================================================
     # 현재 TB History에서 Lag 값 추출
@@ -192,6 +200,24 @@ class EnvironmentModel:
                 delta_v=effective_delta_v,
             )
         )
+        # --------------------------------------------------------
+        # 이번 Step의 전압 변화로 발생한 제어 전류 변화량
+        # --------------------------------------------------------
+
+        delta_i_action = current_result[
+            "delta_i_action"
+        ]
+
+
+        # --------------------------------------------------------
+        # 제어 전류 Offset 누적
+        #
+        # 예:
+        # ΔV = -0.2V → ΔI_action = -0.034A
+        # 다음 Step에서 또 -0.2V → 누적 -0.068A
+        #
+        # 이후 ΔV = 0이어도 이 Offset은 유지된다.
+        # --------------------------------------------------------
 
         delta_i_total = (
             current_result[
@@ -205,18 +231,15 @@ class EnvironmentModel:
             ]
         )
 
-        delta_i_action = (
-            current_result[
-                "delta_i_action"
-            ]
-        )
-
         I_next = (
             current_result[
                 "next_current"
             ]
         )
 
+        self.control_current_offset += (
+                    delta_i_action
+                )
 
         # ----------------------------------------------------
         # 4. TB Model 예측
@@ -229,7 +252,9 @@ class EnvironmentModel:
                 TB_lag2=TB_lag2,
                 TB_lag3=TB_lag3,
                 TB_lag6=TB_lag6,
-                delta_i_action=delta_i_action,
+                # 이번 Step의 순간 변화량이 아니라
+                # 지금까지 누적된 제어 운전점 Offset을 전달
+                delta_i_action=self.control_current_offset,
             )
         )
 
@@ -301,4 +326,7 @@ class EnvironmentModel:
             "requested_delta_v": requested_delta_v,
             "effective_delta_v": effective_delta_v,
             "model_limit_hit": model_limit_hit,
+
+            "control_current_offset":
+            self.control_current_offset,
         }

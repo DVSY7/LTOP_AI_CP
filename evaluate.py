@@ -10,7 +10,7 @@ from config.settings import (
     RL_ALGORITHM,
     TARGET_POTENTIAL_MAX,
     TARGET_POTENTIAL_MIN,
-    VOLTAGE_STEP,
+    SAC_MAX_DELTA_VOLTAGE
 )
 from env.cathodic_env import CathodicProtectionEnv
 
@@ -99,7 +99,7 @@ def evaluate() -> None:
             )
 
             delta_voltage = (
-                normalized_action * VOLTAGE_STEP
+                normalized_action * SAC_MAX_DELTA_VOLTAGE
             )
 
             action_text = (

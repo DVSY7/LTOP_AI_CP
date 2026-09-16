@@ -267,9 +267,104 @@ def create_tb_history_data(df):
 
     return tb_df
 
+# ------------------------------------------------------------
+# 6. Gym Reset 후보 데이터 생성
+# ------------------------------------------------------------
+
+def create_reset_candidates(df):
+    """
+    Gymnasium Environment의 reset()에서 사용할
+    실제 데이터 기반 초기 상태 후보를 생성한다.
+
+    하나의 Reset 후보에는 다음 값이 모두 포함된다.
+
+        현재 시점:
+            Rectifier_Voltage
+            Rectifier_Current
+            TB1-Volt
+
+        이전 60분 TB History:
+            TB_Lag1
+            TB_Lag2
+            TB_Lag3
+            TB_Lag4
+            TB_Lag5
+            TB_Lag6
+
+    Lag 값은 반드시 같은 Segment 안에서만 생성한다.
+
+    즉 데이터 누락 구간을 넘어
+    서로 다른 시점의 TB가 연결되는 것을 방지한다.
+    """
+
+    reset_df = df.copy()
+
+    # --------------------------------------------------------
+    # 같은 연속 Segment 안에서만 TB History 생성
+    # --------------------------------------------------------
+
+    grouped_tb = (
+        reset_df
+        .groupby("Segment")["TB1-Volt"]
+    )
+
+    reset_df["TB_Lag1"] = (
+        grouped_tb.shift(1)
+    )
+
+    reset_df["TB_Lag2"] = (
+        grouped_tb.shift(2)
+    )
+
+    reset_df["TB_Lag3"] = (
+        grouped_tb.shift(3)
+    )
+
+    reset_df["TB_Lag4"] = (
+        grouped_tb.shift(4)
+    )
+
+    reset_df["TB_Lag5"] = (
+        grouped_tb.shift(5)
+    )
+
+    reset_df["TB_Lag6"] = (
+        grouped_tb.shift(6)
+    )
+
+
+    # --------------------------------------------------------
+    # Reset에 필요한 값이 모두 존재하는 행만 사용
+    # --------------------------------------------------------
+
+    reset_df = reset_df.dropna(
+        subset=[
+            "DateTime",
+            "Segment",
+            "Rectifier_Voltage",
+            "Rectifier_Current",
+            "TB1-Volt",
+            "TB_Lag1",
+            "TB_Lag2",
+            "TB_Lag3",
+            "TB_Lag4",
+            "TB_Lag5",
+            "TB_Lag6",
+        ]
+    ).copy()
+
+
+    # index를 다시 0부터 정리
+    reset_df = (
+        reset_df
+        .reset_index(drop=True)
+    )
+
+
+    return reset_df
 
 # ------------------------------------------------------------
-# 6. 전체 전처리 실행
+# 7. 전체 전처리 실행
 # ------------------------------------------------------------
 
 def preprocess_environment_data(file_path):

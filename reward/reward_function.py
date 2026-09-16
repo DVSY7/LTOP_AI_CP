@@ -121,7 +121,11 @@ def calculate_sac_reward(
 ) -> float:
     """SAC 연속제어용 보상함수."""
 
-    target_potential = TARGET_POTENTIAL_MAX
+    target_potential = (
+        TARGET_POTENTIAL_MIN
+        +
+        TARGET_POTENTIAL_MAX
+    ) / 2.0
 
     previous_distance = abs(
         previous_pipe_potential - target_potential

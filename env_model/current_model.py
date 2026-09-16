@@ -12,14 +12,28 @@ from env_model.config.settings import (
 
 class CurrentModel:
 
-    def __init__(
-        self,
-        model_path=CURRENT_MODEL_PATH,
-    ):
+    def __init__(self, model_path=CURRENT_MODEL_PATH):
 
         self.model = joblib.load(
             model_path
         )
+
+        # ----------------------------------------------------
+        # Gym / RL 학습의 결정론적 실행 보장
+        #
+        # RandomForest를 여러 CPU에서 병렬 예측하면
+        # 트리 결과 합산 순서 때문에 약 1e-18 수준의
+        # 부동소수점 차이가 발생할 수 있다.
+        #
+        # 환경모델 inference에서는 재현성이 중요하므로
+        # 단일 스레드로 고정한다.
+        # ----------------------------------------------------
+
+        if hasattr(
+            self.model,
+            "n_jobs",
+        ):
+            self.model.n_jobs = 1
 
 
     # ========================================================

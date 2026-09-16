@@ -32,15 +32,21 @@ class TBModel:
     제어에 의한 TB 변화량을 추가한다.
     """
 
-    def __init__(
-        self,
-        model_path=TB_MODEL_PATH,
-    ):
+    def __init__(self, model_path=TB_MODEL_PATH):
 
-        # 저장된 TB History RandomForest 모델 불러오기
         self.model = joblib.load(
             model_path
         )
+
+        # ----------------------------------------------------
+        # Gym / RL 학습의 결정론적 실행 보장
+        # ----------------------------------------------------
+
+        if hasattr(
+            self.model,
+            "n_jobs",
+        ):
+            self.model.n_jobs = 1
 
 
     # ========================================================
