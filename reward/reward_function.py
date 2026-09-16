@@ -119,57 +119,105 @@ def calculate_sac_reward(
     output_current: float,
     applied_delta_voltage: float,
 ) -> float:
-    """SAC 연속제어용 보상함수."""
+    """
+    SAC 연속제어용 Reward V2.
+
+    핵심 목표
+    ---------
+    1. 목표 중심(-1600mV)에 가까워지는 행동을 명확하게 보상
+    2. 목표에서 멀어지는 행동을 명확하게 패널티
+    3. 목표 범위에서는 안정적인 유지를 보상
+    4. 목표 범위에서 불필요한 제어는 억제
+    """
+
+    # --------------------------------------------------------
+    # 1. 목표 중심 계산
+    # --------------------------------------------------------
 
     target_potential = (
         TARGET_POTENTIAL_MIN
-        +
-        TARGET_POTENTIAL_MAX
+        + TARGET_POTENTIAL_MAX
     ) / 2.0
 
+
+    # --------------------------------------------------------
+    # 2. 이전 / 현재 목표 중심까지 거리
+    # --------------------------------------------------------
+
     previous_distance = abs(
-        previous_pipe_potential - target_potential
+        previous_pipe_potential
+        - target_potential
     )
 
     current_distance = abs(
-        pipe_potential - target_potential
+        pipe_potential
+        - target_potential
     )
 
-    # 현재 위치에 대한 보상
-    if TARGET_POTENTIAL_MIN <= pipe_potential <= TARGET_POTENTIAL_MAX:
-        potential_reward = 10.0
 
-    elif pipe_potential > TARGET_POTENTIAL_MAX:
-        distance = pipe_potential - TARGET_POTENTIAL_MAX
-        potential_reward = (
-            -100.0
-            - distance / 100.0
+    # --------------------------------------------------------
+    # 3. 목표 접근 Progress Reward
+    #
+    # 예:
+    #
+    # 목표에 5mV 가까워짐
+    # → +25
+    #
+    # 목표에서 5mV 멀어짐
+    # → -25
+    # --------------------------------------------------------
+
+    progress_reward = (
+        previous_distance
+        - current_distance
+    ) * 5.0
+
+
+    # --------------------------------------------------------
+    # 4. 목표 범위 도달 / 유지 보상
+    # --------------------------------------------------------
+
+    in_target = (
+        TARGET_POTENTIAL_MIN
+        <= pipe_potential
+        <= TARGET_POTENTIAL_MAX
+    )
+
+    if in_target:
+        target_reward = 20.0
+    else:
+        target_reward = 0.0
+
+
+    # --------------------------------------------------------
+    # 5. Action Penalty
+    #
+    # 목표 범위에서는 불필요한 출력변화를
+    # 조금 더 강하게 억제한다.
+    # --------------------------------------------------------
+
+    if in_target:
+
+        action_penalty = (
+            10.0
+            * abs(applied_delta_voltage)
         )
 
     else:
-        distance = TARGET_POTENTIAL_MIN - pipe_potential
-        potential_reward = (
-            -50.0
-            - distance / 100.0
+
+        action_penalty = (
+            1.0
+            * abs(applied_delta_voltage)
         )
 
-    # 이전 Step보다 목표 중심에 가까워졌는지 평가
-    progress_reward = (
-        previous_distance - current_distance
-    )
 
-    power_penalty = (
-        0.01 * output_voltage * output_current
-    )
-
-    action_penalty = (
-        0.05 * abs(applied_delta_voltage)
-    )
+    # --------------------------------------------------------
+    # 6. 최종 Reward
+    # --------------------------------------------------------
 
     reward = (
-        potential_reward
-        + progress_reward
-        - power_penalty
+        progress_reward
+        + target_reward
         - action_penalty
     )
 
