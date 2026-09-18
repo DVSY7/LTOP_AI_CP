@@ -17,48 +17,29 @@ from config.settings import (
 
 
 # ============================================================
-# 테스트할 실제 상태
-# ============================================================
-
-TEST_STATES = {
-    "BELOW (-1618 mV)": {
-        "voltage": 43.50,
-        "current": 5.94,
-        "tb": -1618.0,
-    },
-
-    "ABOVE (-1568 mV)": {
-        "voltage": 43.50,
-        "current": 5.94,
-        "tb": -1568.0,
-    },
-}
-
-
-# ============================================================
-# SAC Action
+# Offset 정규화 범위
 #
-# 현재 설정:
-# -1.0 → -0.05V
-#  0.0 →  0.00V
-# +1.0 → +0.05V
+# cathodic_env.py에서 사용한 범위와 반드시 동일해야 한다.
 # ============================================================
 
-TEST_ACTIONS = {
-    "DECREASE (-1.0)": -1.0,
-    "HOLD      (0.0)":  0.0,
-    "INCREASE (+1.0)": +1.0,
-}
+OFFSET_MIN = -0.20
+OFFSET_MAX = +0.20
 
 
-def normalize_state(
+def make_observation(
     voltage: float,
     current: float,
     tb: float,
+    offset: float,
 ) -> np.ndarray:
     """
-    cathodic_env.py의 SAC Observation 정규화와
-    동일한 방식으로 상태를 0~1 범위로 변환한다.
+    실제 물리값
+    [V, I, TB, Offset]
+
+    ↓
+
+    SAC가 사용하는 정규화 Observation
+    [V_norm, I_norm, TB_norm, Offset_norm]
     """
 
     normalized_voltage = (
@@ -73,192 +54,251 @@ def normalize_state(
         MAX_OUTPUT_CURRENT - MIN_OUTPUT_CURRENT
     )
 
-    normalized_potential = (
+    normalized_tb = (
         tb - MIN_PIPE_POTENTIAL
     ) / (
         MAX_PIPE_POTENTIAL - MIN_PIPE_POTENTIAL
+    )
+
+    normalized_offset = (
+        offset - OFFSET_MIN
+    ) / (
+        OFFSET_MAX - OFFSET_MIN
+    )
+
+    normalized_offset = np.clip(
+        normalized_offset,
+        0.0,
+        1.0,
     )
 
     return np.array(
         [
             normalized_voltage,
             normalized_current,
-            normalized_potential,
+            normalized_tb,
+            normalized_offset,
         ],
         dtype=np.float32,
     )
 
 
-def test_sac_q_value():
+def get_q_values(
+    model,
+    observation: np.ndarray,
+    action_value: float,
+):
+    """
+    하나의 Observation과 Action에 대해
+    SAC Critic의 Q1, Q2를 확인한다.
+    """
+
+    obs_tensor = torch.tensor(
+        observation,
+        dtype=torch.float32,
+    ).unsqueeze(0)
+
+    action_tensor = torch.tensor(
+        [[action_value]],
+        dtype=torch.float32,
+    )
+
+    with torch.no_grad():
+
+        q_values = model.critic(
+            obs_tensor,
+            action_tensor,
+        )
+
+        q1 = float(
+            q_values[0].cpu().numpy().flatten()[0]
+        )
+
+        q2 = float(
+            q_values[1].cpu().numpy().flatten()[0]
+        )
+
+    return q1, q2
+
+
+def run_case(
+    model,
+    case_name: str,
+    voltage: float,
+    current: float,
+    tb: float,
+    offset: float,
+):
 
     print()
     print("=" * 80)
-    print("SAC Critic Q-Value 테스트")
+    print(f"{case_name}")
     print("=" * 80)
 
+    print(
+        f"실제 상태 | "
+        f"V={voltage:.2f} V | "
+        f"I={current:.2f} A | "
+        f"TB={tb:.1f} mV | "
+        f"Offset={offset:+.3f} A"
+    )
+
+
     # --------------------------------------------------------
-    # 1. 현재 저장된 SAC 모델 불러오기
+    # Observation 생성
+    # --------------------------------------------------------
+
+    observation = make_observation(
+        voltage=voltage,
+        current=current,
+        tb=tb,
+        offset=offset,
+    )
+
+    print()
+    print(
+        "Observation:",
+        observation,
+    )
+
+
+    # --------------------------------------------------------
+    # Actor의 deterministic Action 확인
+    # --------------------------------------------------------
+
+    actor_action, _ = model.predict(
+        observation,
+        deterministic=True,
+    )
+
+    actor_action = float(
+        np.asarray(actor_action).reshape(-1)[0]
+    )
+
+    print()
+    print(
+        f"Actor Action = "
+        f"{actor_action:+.4f}"
+    )
+
+
+    # --------------------------------------------------------
+    # Critic Q-value 비교
+    #
+    # -1 = 최대 전압 감소
+    #  0 = 유지
+    # +1 = 최대 전압 증가
+    # --------------------------------------------------------
+
+    actions = {
+        "DECREASE": -1.0,
+        "HOLD": 0.0,
+        "INCREASE": +1.0,
+    }
+
+    print()
+    print(
+        "Critic Q-value"
+    )
+
+    results = {}
+
+    for action_name, action_value in actions.items():
+
+        q1, q2 = get_q_values(
+            model=model,
+            observation=observation,
+            action_value=action_value,
+        )
+
+        min_q = min(
+            q1,
+            q2,
+        )
+
+        results[action_name] = min_q
+
+        print(
+            f"{action_name:<10} | "
+            f"Action={action_value:+.1f} | "
+            f"Q1={q1:+.4f} | "
+            f"Q2={q2:+.4f} | "
+            f"MinQ={min_q:+.4f}"
+        )
+
+
+    # --------------------------------------------------------
+    # Critic이 가장 높게 평가하는 방향
+    # --------------------------------------------------------
+
+    best_action = max(
+        results,
+        key=results.get,
+    )
+
+    print()
+    print(
+        f"Critic Best Action = "
+        f"{best_action}"
+    )
+
+
+def main():
+
+    print()
+    print("=" * 80)
+    print("4-State SAC Q-value 진단")
+    print("=" * 80)
+
+
+    # --------------------------------------------------------
+    # 새로 학습한 4-state SAC 모델 로드
     # --------------------------------------------------------
 
     model = SAC.load(
         SAC_MODEL_PATH
     )
 
-    print()
-    print(
-        f"SAC 모델 로드 완료: "
-        f"{SAC_MODEL_PATH}"
+
+    # ========================================================
+    # CASE 1
+    #
+    # BELOW
+    #
+    # TB=-1618 mV
+    # 목표보다 너무 음(-)이므로
+    # 우리가 기대하는 방향은 DECREASE
+    # ========================================================
+
+    run_case(
+        model=model,
+        case_name="CASE 1 : BELOW",
+        voltage=43.50,
+        current=5.94,
+        tb=-1618.0,
+        offset=0.0,
     )
 
 
-    # --------------------------------------------------------
-    # 2. BELOW / ABOVE 각각 테스트
-    # --------------------------------------------------------
+    # ========================================================
+    # CASE 2
+    #
+    # ABOVE
+    #
+    # TB=-1568 mV
+    # 목표보다 덜 음(-)이므로
+    # 우리가 기대하는 방향은 INCREASE
+    # ========================================================
 
-    for state_name, state in TEST_STATES.items():
-
-        print()
-        print("=" * 80)
-        print(f"상태: {state_name}")
-
-        print(
-            f"실제 상태 | "
-            f"V={state['voltage']:.2f} V | "
-            f"I={state['current']:.2f} A | "
-            f"TB={state['tb']:.1f} mV"
-        )
-
-        # ----------------------------------------------------
-        # 환경과 동일하게 Observation 정규화
-        # ----------------------------------------------------
-
-        observation = normalize_state(
-            voltage=state["voltage"],
-            current=state["current"],
-            tb=state["tb"],
-        )
-
-        print(
-            "SAC Observation | "
-            f"{observation}"
-        )
-
-
-        # ----------------------------------------------------
-        # numpy → PyTorch Tensor
-        #
-        # shape:
-        # (3,) → (1, 3)
-        # ----------------------------------------------------
-
-        obs_tensor = torch.as_tensor(
-            observation,
-            dtype=torch.float32,
-            device=model.device,
-        ).unsqueeze(0)
-
-
-        # ----------------------------------------------------
-        # 현재 Actor가 실제로 선택하는 Action도 확인
-        # ----------------------------------------------------
-
-        predicted_action, _ = model.predict(
-            observation,
-            deterministic=True,
-        )
-
-        print()
-        print(
-            "Actor deterministic Action: "
-            f"{float(np.asarray(predicted_action).item()):+.4f}"
-        )
-
-        print()
-        print("-" * 80)
-        print(
-            f"{'Action':<22} | "
-            f"{'Q1':>12} | "
-            f"{'Q2':>12} | "
-            f"{'Min Q':>12}"
-        )
-        print("-" * 80)
-
-
-        results = []
-
-
-        # ----------------------------------------------------
-        # 3. 동일 State에서
-        #    -1 / 0 / +1 Action의 Q-value 비교
-        # ----------------------------------------------------
-
-        with torch.no_grad():
-
-            for action_name, action_value in TEST_ACTIONS.items():
-
-                action_tensor = torch.tensor(
-                    [[action_value]],
-                    dtype=torch.float32,
-                    device=model.device,
-                )
-
-                # SAC Critic은 Twin Q Network 사용
-                q_values = model.critic(
-                    obs_tensor,
-                    action_tensor,
-                )
-
-                q1 = float(
-                    q_values[0]
-                    .cpu()
-                    .item()
-                )
-
-                q2 = float(
-                    q_values[1]
-                    .cpu()
-                    .item()
-                )
-
-                # SAC에서는 보수적으로 두 Q 중 작은 값을 사용
-                min_q = min(
-                    q1,
-                    q2,
-                )
-
-                results.append(
-                    {
-                        "action_name": action_name,
-                        "q1": q1,
-                        "q2": q2,
-                        "min_q": min_q,
-                    }
-                )
-
-                print(
-                    f"{action_name:<22} | "
-                    f"{q1:>+12.4f} | "
-                    f"{q2:>+12.4f} | "
-                    f"{min_q:>+12.4f}"
-                )
-
-
-        # ----------------------------------------------------
-        # 4. Critic이 가장 높게 평가한 Action 표시
-        # ----------------------------------------------------
-
-        best_result = max(
-            results,
-            key=lambda x: x["min_q"],
-        )
-
-        print("-" * 80)
-
-        print(
-            "Critic 최고 평가 Action: "
-            f"{best_result['action_name']}"
-        )
+    run_case(
+        model=model,
+        case_name="CASE 2 : ABOVE",
+        voltage=43.50,
+        current=5.94,
+        tb=-1568.0,
+        offset=0.0,
+    )
 
 
 if __name__ == "__main__":
-    test_sac_q_value()
+    main()

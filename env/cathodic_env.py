@@ -122,18 +122,19 @@ class CathodicProtectionEnv(gym.Env):
             #   출력전압,
             #   출력전류,
             #   방식전위,
-            #   누적 제어전류 영향(control_current_offset)
+            #   누적 제어전류 영향(control_current_offset),
+            #   TB 변화량(Trend)
             # ]
             #
             # 모두 0~1 범위로 정규화해서 사용한다.
             # ----------------------------------------------------
             observation_low = np.zeros(
-                4,
+                5,
                 dtype=np.float32
             )
 
             observation_high = np.ones(
-                4,
+                5,
                 dtype=np.float32
             )
     
@@ -295,12 +296,77 @@ class CathodicProtectionEnv(gym.Env):
                 )
             )
 
+            # ----------------------------------------------------
+            # TB Trend 계산
+            #
+            # EnvironmentModel의 tb_history에는
+            # 최근 TB 이력이 저장되어 있다.
+            #
+            # 마지막 값     = 현재 TB
+            # 마지막 이전 값 = 이전 TB
+            #
+            # TB Trend = 현재 TB - 이전 TB
+            # ----------------------------------------------------
+
+            tb_history = self.environment_model.tb_history
+
+            if len(tb_history) >= 2:
+
+                previous_tb = float(
+                    tb_history[-2]
+                )
+
+                current_tb = float(
+                    tb_history[-1]
+                )
+
+                tb_trend = (
+                    current_tb
+                    - previous_tb
+                )
+
+            else:
+                # 혹시 History가 충분하지 않은 경우
+                # 변화 없음으로 처리
+                tb_trend = 0.0
+
+            # ----------------------------------------------------
+            # TB Trend 정규화
+            #
+            # 진단용 범위:
+            # -10 mV ~ +10 mV
+            #
+            # -10 mV → 0.0
+            #   0 mV → 0.5
+            # +10 mV → 1.0
+            # ----------------------------------------------------
+
+            TB_TREND_MIN = -10.0
+            TB_TREND_MAX = +10.0
+
+            normalized_tb_trend = (
+                tb_trend
+                - TB_TREND_MIN
+            ) / (
+                TB_TREND_MAX
+                - TB_TREND_MIN
+            )
+
+            normalized_tb_trend = float(
+                np.clip(
+                    normalized_tb_trend,
+                    0.0,
+                    1.0,
+                )
+            )
+
             return np.array(
                 [
                     normalized_voltage,
                     normalized_current,
                     normalized_potential,
                     normalized_offset,
+                    normalized_tb_trend,
                 ],
                 dtype=np.float32,
             )
