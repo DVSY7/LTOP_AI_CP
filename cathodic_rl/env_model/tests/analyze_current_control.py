@@ -1,15 +1,17 @@
+"""수동 분석: 실제 전류 transition과 CurrentModel 제어 응답을 비교한다."""
+
 import numpy as np
 import pandas as pd
 
-from env_model.preprocessing import (
+from cathodic_rl.env_model.preprocessing import (
     preprocess_environment_data,
 )
 
-from env_model.current_model import (
+from cathodic_rl.env_model.current_model import (
     CurrentModel,
 )
 
-from env_model.config.settings import (
+from cathodic_rl.env_model.config.settings import (
     DATA_PATH,
 )
 

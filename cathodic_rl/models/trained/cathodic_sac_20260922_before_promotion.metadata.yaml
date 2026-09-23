@@ -1,0 +1,19 @@
+model_version: sac-4state-v1
+algorithm: SAC
+model_file: cathodic_sac.zip
+sha256: 57b8be091851303bd61f1406dc8a80d7c8a6d16a8b35c5dba87be396f8337d39
+state:
+  fields:
+    - {name: rectifier_voltage, unit: V, min: 0.0, max: 60.0}
+    - {name: rectifier_current, unit: A, min: 0.0, max: 30.0}
+    - {name: tb_potential, unit: mV, min: -3000.0, max: 0.0}
+    - {name: tb_trend, unit: mV/cycle, min: -10.0, max: 10.0}
+  normalized_range: [0.0, 1.0]
+action:
+  fields: [delta_voltage]
+  normalized_range: [-1.0, 1.0]
+  max_delta_voltage: 0.05
+safety:
+  min_set_voltage: 0.0
+  max_set_voltage: 60.0
+  max_delta_voltage: 3.0

@@ -1,11 +1,13 @@
+"""수동 진단: 원본 데이터가 Current/TB 모델 학습용 표로 변환되는지 확인한다."""
+
 from pathlib import Path
 
-import _path_setup
+from cathodic_rl.env_model.tests import _path_setup
 
-from env_model.config.settings import(
+from cathodic_rl.env_model.config.settings import(
     DATA_PATH
 )
-from env_model.preprocessing import (
+from cathodic_rl.env_model.preprocessing import (
     preprocess_environment_data
 )
 

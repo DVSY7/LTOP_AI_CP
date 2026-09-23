@@ -7,11 +7,11 @@ from sklearn.metrics import (
     mean_squared_error,
 )
 
-from env_model.preprocessing import (
+from cathodic_rl.env_model.preprocessing import (
     preprocess_environment_data,
 )
 
-from env_model.config.settings import (
+from cathodic_rl.env_model.config.settings import (
     DATA_PATH,
     SAVE_DIR,
     TB_MODEL_PATH,

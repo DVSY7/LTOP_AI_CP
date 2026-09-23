@@ -1,4 +1,6 @@
-from env_model.environment_model import EnvironmentModel
+"""수동 진단: 결합 환경모델을 여러 Step 실행하며 History 갱신을 확인한다."""
+
+from cathodic_rl.env_model.environment_model import EnvironmentModel
 
 
 # ============================================================

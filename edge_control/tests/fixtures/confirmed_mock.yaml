@@ -1,0 +1,36 @@
+# 실제 장비 사양이 아닌 테스트 전용 가상 프로토콜.
+profile: mock_only
+enabled: true
+write_enabled: false
+connection:
+  host: localhost
+  port: 15020
+  unit_id: 7
+  timeout_seconds: 0.5
+  retries: 0
+address_base: 1
+poll_interval_seconds: 0.01
+reconnect_interval_seconds: 0.02
+logging:
+  file: mock.jsonl
+  max_bytes: 10000
+  backup_count: 1
+registers:
+  rectifier_voltage:
+    address: 101
+    register_type: holding
+    data_type: uint16
+    byte_order: big
+    word_order: big
+    scale: 0.1
+    offset: 0
+    unit: V
+  rectifier_current:
+    address: 201
+    register_type: input
+    data_type: int16
+    byte_order: big
+    word_order: big
+    scale: 0.01
+    offset: 0
+    unit: A

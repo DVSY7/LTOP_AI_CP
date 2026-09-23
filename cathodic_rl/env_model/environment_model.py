@@ -1,8 +1,8 @@
 import numpy as np
 
-from env_model.current_model import CurrentModel
-from env_model.tb_model import TBModel
-from env_model.config.settings import (
+from cathodic_rl.env_model.current_model import CurrentModel
+from cathodic_rl.env_model.tb_model import TBModel
+from cathodic_rl.env_model.config.settings import (
     MODEL_VALID_V_MIN,
     MODEL_VALID_V_MAX,
 )

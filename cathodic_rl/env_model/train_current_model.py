@@ -9,7 +9,7 @@ from sklearn.metrics import (
     mean_squared_error,
 )
 
-from env_model.preprocessing import (
+from cathodic_rl.env_model.preprocessing import (
     preprocess_environment_data,
 )
 
@@ -21,7 +21,7 @@ from env_model.preprocessing import (
 # 현재 파일:
 # cathodic_rl/env_model/train_current_model.py
 
-from env_model.config.settings import(
+from cathodic_rl.env_model.config.settings import(
     DATA_PATH,
     SAVE_DIR,
     CURRENT_MODEL_PATH

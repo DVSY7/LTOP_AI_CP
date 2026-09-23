@@ -21,12 +21,13 @@ from pathlib import Path
 
 import pandas as pd
 
-from env_model.config.settings import DATA_PATH
-from env_model.preprocessing import (
+from cathodic_rl.env_model.config.settings import DATA_PATH
+from cathodic_rl.env_model.preprocessing import (
     preprocess_environment_data,
     create_reset_candidates,
 )
-from env_model.environment_model import EnvironmentModel
+from cathodic_rl.env_model.environment_model import EnvironmentModel
+from cathodic_rl.config.settings import MAX_EPISODE_STEPS, SAC_MAX_DELTA_VOLTAGE
 
 
 # ============================================================
@@ -39,7 +40,7 @@ CACHE_DIR = ENV_DIR / "cache"
 
 RESET_POOL_CACHE_PATH = (
     CACHE_DIR
-    / "reachable_reset_pool_v1.csv"
+    / "reachable_reset_pool_sac005_v2.csv"
 )
 
 
@@ -51,11 +52,16 @@ TARGET_POTENTIAL_MIN = -1610.0
 TARGET_POTENTIAL_MAX = -1590.0
 
 # Reachability 검사 최대 Step
-REACHABILITY_MAX_STEPS = 50
+REACHABILITY_MAX_STEPS = MAX_EPISODE_STEPS
 
 # SAC 최대 Action을 실제 ΔV로 변환했을 때의 값
-# 현재 SAC_MAX_DELTA_VOLTAGE = 0.20 V
-MAX_DELTA_VOLTAGE = 0.20
+# 실제 SAC Action 변환값과 반드시 동일해야 한다.
+MAX_DELTA_VOLTAGE = SAC_MAX_DELTA_VOLTAGE
+
+# 프로토타입 재학습에서는 전체 후보를 매번 검사하지 않고,
+# 각 전위 구간에서 고정 seed로 같은 수만 선별한다.
+RESET_CANDIDATES_PER_GROUP = 100
+RESET_CANDIDATE_SAMPLE_SEED = 42
 
 
 # ============================================================
@@ -70,14 +76,14 @@ def classify_reset_group(
 
     BELOW
         목표보다 너무 음수
-        → 전압 감소 필요
+        -> 전압 감소 필요
 
     TARGET
         이미 목표 범위
 
     ABOVE
         목표보다 덜 음수
-        → 전압 증가 필요
+        -> 전압 증가 필요
     """
 
     if pipe_potential < TARGET_POTENTIAL_MIN:
@@ -182,13 +188,13 @@ def is_reachable(
     목표 전위까지 도달 가능한지 검사한다.
 
     BELOW
-        최대 전압 감소(-0.20V)를 반복
+        최대 전압 감소를 반복
 
     TARGET
         시작부터 Reachable
 
     ABOVE
-        최대 전압 증가(+0.20V)를 반복
+        최대 전압 증가를 반복
     """
 
     (
@@ -226,7 +232,7 @@ def is_reachable(
         delta_v = +MAX_DELTA_VOLTAGE
 
     # --------------------------------------------------------
-    # 최대 50 Step 동안 목표 도달 여부 검사
+    # 최대 Episode 길이 동안 목표 도달 여부 검사
     # --------------------------------------------------------
 
     for _ in range(
@@ -285,6 +291,28 @@ def generate_reachable_reset_pool() -> pd.DataFrame:
 
     reset_candidates = (
         create_reset_candidates(df)
+        .reset_index(drop=True)
+    )
+
+    reset_candidates["Reset_Group"] = (
+        reset_candidates["TB1-Volt"].apply(
+            classify_reset_group
+        )
+    )
+
+    reset_candidates = (
+        reset_candidates
+        .groupby("Reset_Group", group_keys=False)
+        .apply(
+            lambda group: group.sample(
+                n=min(
+                    RESET_CANDIDATES_PER_GROUP,
+                    len(group),
+                ),
+                random_state=RESET_CANDIDATE_SAMPLE_SEED,
+            ),
+            include_groups=False,
+        )
         .reset_index(drop=True)
     )
 
@@ -362,7 +390,8 @@ def generate_reachable_reset_pool() -> pd.DataFrame:
             print(
                 f"진행 : "
                 f"{processed}"
-                f"/{len(reset_candidates)}"
+                f"/{len(reset_candidates)}",
+                flush=True,
             )
 
     # ----------------------------------------

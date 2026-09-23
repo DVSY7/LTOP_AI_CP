@@ -6,6 +6,21 @@
 
 현재 구현은 강화학습 및 제어 흐름을 검증하기 위한 프로토타입으로 취급한다. 검증된 전기화학 모델이나 현장 적용이 가능한 전기방식 시뮬레이터로 간주하지 않는다.
 
+## AI_CP 루트에서 실행
+
+`cathodic_rl`은 AI_CP의 하위 Python 패키지다. 저장소 루트에서 다음처럼 모듈 방식으로 실행한다.
+
+```powershell
+cathodic_rl/.venv/Scripts/python.exe -m cathodic_rl.train
+cathodic_rl/.venv/Scripts/python.exe -m cathodic_rl.evaluate
+cathodic_rl/.venv/Scripts/python.exe -m unittest discover -s cathodic_rl/tests -v
+```
+
+`train.py`와 `evaluate.py`는 기존 직접 실행 방식도 지원하지만, 모듈 방식이 기본 실행 방법이다.
+
+테스트별 목적, 실행 방법, 자동화 여부는 [테스트 안내](docs/TEST_GUIDE.md)를 참고한다.
+주요 실행 흐름과 폴더 책임은 [코드 구조와 읽는 순서](docs/ARCHITECTURE.md)에 정리했다.
+
 ## 언어와 인코딩
 
 - 사용자가 별도로 요청하지 않는 한 한국어로 소통한다.
@@ -23,20 +38,23 @@
 - `models/sac_model.py`: Stable-Baselines3 SAC 모델 생성 함수
 - `train.py`: 설정된 알고리즘을 선택하여 모델을 학습하고 저장하는 실행 파일
 - `evaluate.py`: 설정된 학습 모델을 불러와 환경에서 평가하는 실행 파일
-- `tests/`: 직접 실행할 수 있는 assert 기반 테스트와 Gymnasium 호환성 검사
+- `tests/`: 자동 회귀 테스트
+- `analysis/`: 사람이 실행해 모델·환경 동작을 확인하는 진단 스크립트
 - `models/trained/`: 저장된 DQN 및 SAC 모델 파일
 
 ## 현재 환경 규약
 
 ### 상태
 
-환경 내부 상태는 다음 세 값으로 구성된다.
+SAC 정책 State는 다음 네 값으로 구성된다.
 
 1. 정류기 출력전압 `[V]`
 2. 정류기 출력전류 `[A]`
 3. 관대지전위 `[mV]`
+4. 직전 연속 정상 주기 대비 TB 변화량 `[mV/cycle]`
 
-DQN에는 원시 상태값을 전달한다. SAC에는 설정된 관측 범위를 기준으로 각 상태값을 `[0, 1]` 범위로 정규화하여 전달한다.
+DQN에는 기존 3차원 원시 상태값을 전달한다. SAC에는 4개 상태값을 `[0, 1]` 범위로 정규화하여 전달한다.
+환경모델 내부 `control_current_offset`은 SAC 정책 입력에서 제외했다.
 
 ### 행동
 
@@ -103,29 +121,13 @@ pipe_potential = -500 - 20 * output_voltage
 
 ## 테스트와 실행 환경 참고사항
 
-저장소의 `.venv`는 다른 환경에서 사용할 수 없는 상태다. `.venv/pyvenv.cfg`가 현재 다른 사용자의 `C:\Users\gbytk\...` 경로에 있는 Python을 가리키므로 현재 컴퓨터에서 실행할 수 없다.
-
-마지막 분석에서 확인한 시스템 Python 환경은 다음과 같다.
-
-- Python 3.13.14
-- Gymnasium 1.3.0
-- Stable-Baselines3 2.9.0
-- NumPy 2.5.1
-
-마지막 분석 당시 `pytest`는 설치되어 있지 않았다. 다음 테스트 스크립트를 각각 직접 실행했으며 모두 통과했다.
+자동 테스트는 표준 라이브러리 `unittest`로 실행한다. 현재 학습 환경은 `cathodic_rl/.venv`다.
 
 ```powershell
-python tests/test_setting.py
-python tests/test_reset.py
-python tests/test_step.py
-python tests/test_safety.py
-python tests/test_episode.py
-python tests/test_env_checker.py
-python tests/test_dqn.py
-python tests/test_sac.py
+cathodic_rl/.venv/Scripts/python.exe -m unittest discover -s cathodic_rl/tests -v
 ```
 
-현재 `requirements.txt` 또는 `pyproject.toml`이 없다. 재현 가능한 의존성 명세와 깨끗한 실행 환경을 구성하는 작업을 우선한다. 특정 컴퓨터에 종속된 가상환경을 사용하거나 저장소에 커밋하지 않는다.
+분석용 스크립트의 목록과 실행 방법은 `cathodic_rl/analysis/README.md`에 정리한다.
 
 ## 변경 작업 지침
 

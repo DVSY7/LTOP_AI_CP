@@ -1,4 +1,6 @@
-from env_model.environment_model import EnvironmentModel
+"""수동 진단: 세 Action 패턴으로 144 Step 환경모델 rollout을 비교한다."""
+
+from cathodic_rl.env_model.environment_model import EnvironmentModel
 import random
 
 

@@ -1,0 +1,115 @@
+profile: junction_test
+enabled: true
+write_enabled: true
+connection:
+  host: 192.168.1.5
+  port: 502
+  unit_id: 1 # 산업용 PC TCP 읽기 시험에서 응답 확인 (RTU Slave ID와 별개)
+  timeout_seconds: 3.0 # 시험용 운영 설정, 현장 확인 후 조정
+  retries: 3
+address_base: 0 # TODO: 문서 주소가 0-base 또는 1-base인지 확인
+poll_interval_seconds: 1.0 # 시험용 운영 설정
+reconnect_interval_seconds: 3.0
+ai:
+  enabled: true
+  shadow_mode: false
+  deterministic: true
+  metadata_file: ../../cathodic_rl/models/trained/cathodic_sac.metadata.yaml
+safety:
+  min_set_voltage: 0.0
+  max_set_voltage: 60.0
+  max_delta_voltage: 3.0 # 한 제어 주기에서 허용하는 변화량의 절댓값 (±3 V)
+control:
+  enabled: true
+  write_signal: set_voltage
+  write_interval_seconds: 6 # Write는 1분마다 최대 1회
+  explore:
+    pattern: hold # up_down 또는 hold
+    min_voltage: 42.0
+    max_voltage: 45.0
+    step_voltage: 0.2
+    hold_every_steps: 4
+    hold_steps: 3
+logging:
+  record_interval_seconds: 1
+  file: ../logs/junction_test.jsonl # YAML 파일 기준 상대경로
+  max_bytes: 5000000
+  backup_count: 3
+registers:
+  remote_mode:
+    address: 1 # 장비 R/W, 엣지는 읽기만 수행
+    register_type: holding
+    data_type: uint16
+    byte_order: big
+    word_order: big
+    scale: 1
+    offset: 0
+    unit: code
+    codes: {0: LOCAL, 1: REMOTE}
+  operation_status:
+    address: 2 # 장비 R
+    register_type: holding
+    data_type: uint16
+    byte_order: big
+    word_order: big
+    scale: 1
+    offset: 0
+    unit: code
+    codes: {0: "OFF", 1: "ON"} # YAML의 boolean 자동 해석 방지
+  operation_mode:
+    address: 3 # 장비 R. 현재 코드 0을 AI 모드로 사용
+    register_type: holding
+    data_type: uint16
+    byte_order: big
+    word_order: big
+    scale: 1
+    offset: 0
+    unit: code
+    codes: {0: AI, 1: MANUAL, 2: EXPLORE}
+  rectifier_voltage:
+    address: 6 # 사용자 지정: 정션 시험용 전압 매핑
+    register_type: holding # TODO: holding / input
+    data_type: uint16 # TODO: uint16 / int16 / uint32 / int32 / float32
+    byte_order: big # TODO: big / little (각 16-bit word 내부)
+    word_order: big # TODO: big / little (단일 word는 big)
+    scale: 0.01 # TODO: 사용자 예시 4500 -> 45 V는 0.01에 해당. 아직 미확정
+    offset: 0 # TODO: 가산 보정값, 없으면 0을 명시
+    unit: V
+  rectifier_current:
+    address: 7 # 사용자 지정: 정션 시험용 전류 매핑
+    register_type: holding
+    data_type: uint16
+    byte_order: big
+    word_order: big
+    scale: 0.01 # TODO: 전류도 원시값 / 100인지 별도 확인
+    offset: 0
+    unit: A
+  tb_potential:
+    address: 251
+    register_type: holding
+    data_type: uint16
+    byte_order: big 
+    word_order: big
+    scale: -1
+    offset: 0
+    unit: mV
+  tb_status:
+    address: 254
+    register_type: holding
+    data_type: uint16
+    byte_order: big
+    word_order: big
+    scale: 1
+    offset: 0
+    unit: code
+    codes: {0: NORMAL, 1: ERR_BAT, 2: ERR_COM, 3: ERR_VT}
+  set_voltage:
+    address: 20
+    access: read_write # 단일 Write 시험 후보. write_enabled=false에서는 사용 불가
+    register_type: holding
+    data_type: uint16
+    byte_order: big
+    word_order: big
+    scale: 0.01
+    offset: 0
+    unit: V

@@ -1,4 +1,6 @@
-from env_model.tb_model import TBModel
+"""수동 진단: TBModel의 자연 변화와 제어전류 보정 효과를 분리해 출력한다."""
+
+from cathodic_rl.env_model.tb_model import TBModel
 
 
 # ============================================================

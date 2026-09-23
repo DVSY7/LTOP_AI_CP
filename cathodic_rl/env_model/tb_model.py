@@ -2,7 +2,7 @@ import joblib
 import numpy as np
 import pandas as pd
 
-from env_model.config.settings import (
+from cathodic_rl.env_model.config.settings import (
     TB_MODEL_PATH,
 )
 

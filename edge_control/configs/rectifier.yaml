@@ -1,0 +1,36 @@
+# 향후 정류기용 비활성 예시. 연결 정보도 실제 장비 사양 확인 후 설정한다.
+profile: rectifier
+enabled: false
+write_enabled: false
+connection:
+  host: null # TODO
+  port: null # TODO
+  unit_id: null # TODO
+  timeout_seconds: 3.0
+  retries: 0
+address_base: null # TODO
+poll_interval_seconds: 1.0
+reconnect_interval_seconds: 3.0
+logging:
+  file: ../logs/rectifier.jsonl
+  max_bytes: 5000000
+  backup_count: 3
+registers:
+  rectifier_voltage:
+    address: 3
+    register_type: null # TODO
+    data_type: null # TODO
+    byte_order: null # TODO
+    word_order: null # TODO
+    scale: null # TODO
+    offset: null # TODO
+    unit: V
+  rectifier_current:
+    address: 5
+    register_type: null # TODO
+    data_type: null # TODO
+    byte_order: null # TODO
+    word_order: null # TODO
+    scale: null # TODO
+    offset: null # TODO
+    unit: A

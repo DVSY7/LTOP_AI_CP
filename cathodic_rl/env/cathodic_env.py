@@ -8,13 +8,13 @@ import gymnasium as gym
 import numpy as np
 from gymnasium import spaces
 
-from env_model.environment_model import EnvironmentModel
+from cathodic_rl.env_model.environment_model import EnvironmentModel
 
-from env.reset_pool import (
+from cathodic_rl.env.reset_pool import (
     load_reachable_reset_pool,
 )
 
-from config.settings import (
+from cathodic_rl.config.settings import (
     ACTION_TO_DELTA_VOLTAGE,
     INITIAL_OUTPUT_CURRENT,
     INITIAL_OUTPUT_VOLTAGE,
@@ -31,12 +31,13 @@ from config.settings import (
     SAC_MAX_DELTA_VOLTAGE
 )
 
-from reward.reward_function import (
+from cathodic_rl.reward.reward_function import (
     calculate_dqn_reward,
     calculate_sac_reward
 )
 
-from safety.safety_filter import filter_voltage_action
+from cathodic_rl.safety.safety_filter import filter_voltage_action
+from shared.control_core import PolicyState, StateBounds, normalize_policy_state
 
 
 class CathodicProtectionEnv(gym.Env):
@@ -122,19 +123,18 @@ class CathodicProtectionEnv(gym.Env):
             #   출력전압,
             #   출력전류,
             #   방식전위,
-            #   누적 제어전류 영향(control_current_offset),
             #   TB 변화량(Trend)
             # ]
             #
             # 모두 0~1 범위로 정규화해서 사용한다.
             # ----------------------------------------------------
             observation_low = np.zeros(
-                5,
+                4,
                 dtype=np.float32
             )
 
             observation_high = np.ones(
-                5,
+                4,
                 dtype=np.float32
             )
     
@@ -239,63 +239,6 @@ class CathodicProtectionEnv(gym.Env):
             )
 
         if self.action_mode == "continuous":
-            # SAC용 Observation 정규화
-            normalized_voltage = (
-                self.output_voltage - MIN_OUTPUT_VOLTAGE
-            ) / (
-                MAX_OUTPUT_VOLTAGE - MIN_OUTPUT_VOLTAGE
-            )
-
-            normalized_current = (
-                self.output_current - MIN_OUTPUT_CURRENT
-            ) / (
-                MAX_OUTPUT_CURRENT - MIN_OUTPUT_CURRENT
-            )
-
-            normalized_potential = (
-                self.pipe_potential - MIN_PIPE_POTENTIAL
-            ) / (
-                MAX_PIPE_POTENTIAL - MIN_PIPE_POTENTIAL
-            )
-
-            # ----------------------------------------------------
-            # control_current_offset 정규화
-            #
-            # 현재 V1에서 한 Episode는 20 Step이고
-            # SAC 최대 Delta_V = ±0.05V
-            #
-            # Current Control Gain = 0.17 A/V 이므로
-            #
-            # 1 Step 최대 변화:
-            # 0.17 × 0.05 = 0.0085 A
-            #
-            # 20 Step 최대 누적:
-            # 0.0085 × 20 = 0.17 A
-            #
-            # 따라서 진단 실험에서는
-            # offset 범위를 -0.20 ~ +0.20 A로 잡는다.
-            # ----------------------------------------------------
-
-            OFFSET_MIN = -0.20
-            OFFSET_MAX = +0.20
-
-            normalized_offset = (
-                self.environment_model.control_current_offset
-                - OFFSET_MIN
-            ) / (
-                OFFSET_MAX - OFFSET_MIN
-            )
-
-            # 혹시 범위를 벗어나더라도
-            # Observation Space 0~1을 위반하지 않도록 제한
-            normalized_offset = float(
-                np.clip(
-                    normalized_offset,
-                    0.0,
-                    1.0,
-                )
-            )
-
             # ----------------------------------------------------
             # TB Trend 계산
             #
@@ -344,32 +287,22 @@ class CathodicProtectionEnv(gym.Env):
             TB_TREND_MIN = -10.0
             TB_TREND_MAX = +10.0
 
-            normalized_tb_trend = (
-                tb_trend
-                - TB_TREND_MIN
-            ) / (
-                TB_TREND_MAX
-                - TB_TREND_MIN
+            policy_state = PolicyState(
+                rectifier_voltage=self.output_voltage,
+                rectifier_current=self.output_current,
+                tb_potential=self.pipe_potential,
+                tb_trend=tb_trend,
             )
-
-            normalized_tb_trend = float(
-                np.clip(
-                    normalized_tb_trend,
-                    0.0,
-                    1.0,
-                )
+            normalized = normalize_policy_state(
+                policy_state,
+                StateBounds(
+                    voltage=(MIN_OUTPUT_VOLTAGE, MAX_OUTPUT_VOLTAGE),
+                    current=(MIN_OUTPUT_CURRENT, MAX_OUTPUT_CURRENT),
+                    potential=(MIN_PIPE_POTENTIAL, MAX_PIPE_POTENTIAL),
+                    tb_trend=(TB_TREND_MIN, TB_TREND_MAX),
+                ),
             )
-
-            return np.array(
-                [
-                    normalized_voltage,
-                    normalized_current,
-                    normalized_potential,
-                    normalized_offset,
-                    normalized_tb_trend,
-                ],
-                dtype=np.float32,
-            )
+            return np.array(normalized, dtype=np.float32)
         raise ValueError(
             f"지원하지 않는 action_mode입니다: {self.action_mode}"
         )

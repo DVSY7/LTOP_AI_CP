@@ -3,7 +3,7 @@
 import gymnasium as gym
 from stable_baselines3 import DQN
 
-from config.settings import DEFAULT_RANDOM_SEED
+from cathodic_rl.config.settings import DEFAULT_RANDOM_SEED
 
 
 def create_dqn_model(

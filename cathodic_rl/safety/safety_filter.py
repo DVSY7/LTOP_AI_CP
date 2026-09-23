@@ -1,11 +1,20 @@
-"""전기방식 제어 Action에 적용하는 안전 필터."""
+"""학습 환경에서 공통 Safety Filter를 호출하는 호환 계층."""
 
-import numpy as np
+from pathlib import Path
+import sys
 
-from config.settings import (
+from cathodic_rl.config.settings import (
     MAX_OUTPUT_VOLTAGE,
     MIN_OUTPUT_VOLTAGE,
 )
+
+# 기존 `cathodic_rl` 디렉터리 직접 실행 방식을 유지하면서 저장소 공통
+# 패키지를 사용한다. 패키징 구조가 정리되면 이 경로 보정은 제거할 수 있다.
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+if str(REPOSITORY_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPOSITORY_ROOT))
+
+from shared.control_core.safety_filter import SafetyLimits, filter_voltage_request
 
 
 def filter_voltage_action(
@@ -24,16 +33,14 @@ def filter_voltage_action(
         실제로 적용할 수 있는 안전한 전압 변화량 [V].
     """
 
-    requested_voltage = (
-        current_voltage + requested_delta_voltage
+    result = filter_voltage_request(
+        current_set_voltage=current_voltage,
+        requested_delta_voltage=requested_delta_voltage,
+        limits=SafetyLimits(
+            min_set_voltage=MIN_OUTPUT_VOLTAGE,
+            max_set_voltage=MAX_OUTPUT_VOLTAGE,
+            # 기존 학습 환경 동작 보존: 변화량 제한은 Action 변환에서 수행한다.
+            max_delta_voltage=None,
+        ),
     )
-
-    safe_voltage = float(
-        np.clip(
-            requested_voltage,
-            MIN_OUTPUT_VOLTAGE,
-            MAX_OUTPUT_VOLTAGE,
-        )
-    )
-
-    return safe_voltage - current_voltage
+    return result.filtered_delta_voltage

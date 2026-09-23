@@ -118,10 +118,19 @@ DEFAULT_RANDOM_SEED: int = 42
 
 # 1차 프로토타입 학습 횟수
 TOTAL_TRAINING_STEPS: int = 10_000
+SAC_BUFFER_SIZE: int =10_000
+SAC_LEARNING_STARTS: int = 2_000
+SAC_ENT_COEF: str = "auto"
 
-# 학습된 모델 저장 경로
-DQN_MODEL_PATH: str = "models/trained/cathodic_dqn"
-SAC_MODEL_PATH: str = "models/trained/cathodic_sac"
+# 학습된 모델 저장 경로. 현재 작업 디렉터리가 아니라 cathodic_rl 기준이다.
+from pathlib import Path
+
+_PROJECT_DIR = Path(__file__).resolve().parent.parent
+DQN_MODEL_PATH: str = str(_PROJECT_DIR / "models" / "trained" / "cathodic_dqn")
+SAC_MODEL_PATH: str = str(_PROJECT_DIR / "models" / "trained" / "cathodic_sac")
+SAC_CANDIDATE_MODEL_PATH: str = str(
+    _PROJECT_DIR / "models" / "trained" / "cathodic_sac_4state_candidate"
+)
 
 # 사용할 학습모델(알고리즘) 선택
 RL_ALGORITHM: str = "sac"

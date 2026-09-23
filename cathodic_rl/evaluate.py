@@ -2,9 +2,14 @@
 
 import numpy as np
 import time
+from pathlib import Path
+import sys
 from stable_baselines3 import DQN, SAC
 
-from config.settings import (
+if __package__ in {None, ""}:
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from cathodic_rl.config.settings import (
     DQN_MODEL_PATH,
     SAC_MODEL_PATH,
     RL_ALGORITHM,
@@ -12,7 +17,7 @@ from config.settings import (
     TARGET_POTENTIAL_MIN,
     SAC_MAX_DELTA_VOLTAGE
 )
-from env.cathodic_env import CathodicProtectionEnv
+from cathodic_rl.env.cathodic_env import CathodicProtectionEnv
 
 
 ACTION_NAMES = {

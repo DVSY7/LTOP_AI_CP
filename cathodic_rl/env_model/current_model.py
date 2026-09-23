@@ -2,7 +2,7 @@ import joblib
 import numpy as np
 import pandas as pd
 
-from env_model.config.settings import (
+from cathodic_rl.env_model.config.settings import (
     CURRENT_MODEL_PATH,
     MODEL_V_MIN,
     MODEL_V_MAX,
@@ -11,6 +11,7 @@ from env_model.config.settings import (
 
 
 class CurrentModel:
+    """자연 전류 변화와 Delta_V에 따른 제어 전류 변화를 합산해 다음 전류를 예측한다."""
 
     def __init__(self, model_path=CURRENT_MODEL_PATH):
 

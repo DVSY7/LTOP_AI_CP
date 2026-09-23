@@ -51,7 +51,8 @@
 
 """전기방식 강화학습 환경의 보상 계산 함수."""
 
-from config.settings import (
+from cathodic_rl.config.settings import (
+    SAC_MAX_DELTA_VOLTAGE,
     TARGET_POTENTIAL_MAX,
     TARGET_POTENTIAL_MIN,
 )
@@ -190,25 +191,32 @@ def calculate_sac_reward(
 
 
     # --------------------------------------------------------
-    # 5. Action Penalty
+    # 5. Action 방향 보상 / 목표 구간 Action 억제
     #
     # 목표 범위에서는 불필요한 출력변화를
     # 조금 더 강하게 억제한다.
     # --------------------------------------------------------
 
-    if in_target:
+    normalized_action = max(
+        -1.0,
+        min(
+            1.0,
+            applied_delta_voltage / SAC_MAX_DELTA_VOLTAGE,
+        ),
+    )
 
-        action_penalty = (
-            10.0
-            * abs(applied_delta_voltage)
-        )
-
+    if previous_pipe_potential < TARGET_POTENTIAL_MIN:
+        # 과방식: 전압 감소(-)가 올바른 방향이다.
+        direction_reward = -5.0 * normalized_action
+        action_penalty = 0.0
+    elif previous_pipe_potential > TARGET_POTENTIAL_MAX:
+        # 미방식: 전압 증가(+)가 올바른 방향이다.
+        direction_reward = 5.0 * normalized_action
+        action_penalty = 0.0
     else:
-
-        action_penalty = (
-            1.0
-            * abs(applied_delta_voltage)
-        )
+        # 목표 구간에서는 HOLD를 명확하게 학습시킨다.
+        direction_reward = 0.0
+        action_penalty = 5.0 * abs(normalized_action)
 
 
     # --------------------------------------------------------
@@ -218,6 +226,7 @@ def calculate_sac_reward(
     reward = (
         progress_reward
         + target_reward
+        + direction_reward
         - action_penalty
     )
 

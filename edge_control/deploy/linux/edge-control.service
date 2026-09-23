@@ -1,0 +1,21 @@
+[Unit]
+Description=AI_CP edge control service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# 설치 시 실제 Linux 사용자와 설치 경로에 맞게 바꾼다.
+User=edgecontrol
+Group=edgecontrol
+WorkingDirectory=/opt/ai_cp
+Environment=PYTHONUNBUFFERED=1
+# 선택 파일. EDGE_CONTROL_ROOT, EDGE_CONTROL_CONFIG를 재정의할 수 있다.
+EnvironmentFile=-/etc/edge-control.env
+ExecStart=/opt/ai_cp/edge_control/deploy/linux/run-edge-control.sh
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
