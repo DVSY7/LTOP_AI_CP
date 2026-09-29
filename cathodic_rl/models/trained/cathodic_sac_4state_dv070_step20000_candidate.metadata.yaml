@@ -1,4 +1,4 @@
-model_version: sac-4state-dv050-step010-candidate
+model_version: sac_4state_dv070_step20000_candidate
 algorithm: SAC
 model_file: cathodic_sac_4state_dv070_step20000_candidate.zip
 sha256: 5572130dabaa01cdb1efdb20ea58bdb38503a6653af0b55c49fef0e1c0b611bd
