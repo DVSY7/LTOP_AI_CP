@@ -4,7 +4,7 @@
 
 ## 먼저 읽을 파일
 
-1. [junction_test.yaml](../edge_control/configs/junction_test.yaml): 현재 시험 장비의 레지스터, 운전 범위, Write 간격
+1. [rectifier.yaml](../edge_control/configs/rectifier.yaml): 현재 정류기 HMI의 레지스터, 운전 범위, Write 간격
 2. [edge_control/src/main.py](../edge_control/src/main.py): 한 제어 주기를 조립하는 실행 진입점
 3. [control_guard.py](../edge_control/src/controller/control_guard.py): 어떤 상태에서 제어와 Write를 허용하는지
 4. [state_processor.py](../edge_control/src/state/state_processor.py): 읽은 값에서 4차원 AI State를 만드는 방법
@@ -15,7 +15,7 @@
 
 ```mermaid
 flowchart LR
-    YAML[junction_test.yaml] --> Config[load_config]
+    YAML[rectifier.yaml] --> Config[load_config]
     Config --> Client[ReadOnlyClient]
     Client --> Reader[RegisterReader]
     Reader --> Measurements[공학 단위 측정값]

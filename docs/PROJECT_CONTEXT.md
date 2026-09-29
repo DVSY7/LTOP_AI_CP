@@ -112,7 +112,7 @@ State의 실제 필드, 순서, 단위, 정규화 방법은 모델 메타데이�
 | 정류기 전압 | Addr 5 | Addr 3 |
 | 정류기 전류 | Addr 6 | Addr 5 |
 
-임시 매핑은 `junction_test.yaml`에 두고, 향후 매핑은 `rectifier.yaml`에 둔다.
+현재 정류기 HMI 매핑은 `rectifier.yaml`에서 관리한다.
 
 ```yaml
 registers:
@@ -272,7 +272,7 @@ AGENTS.md와 docs/PROJECT_CONTEXT.md를 먼저 읽고 지침을 준수해줘.
 1. 현재 저장소와 Git 상태를 확인한다.
 2. 기존 cathodic_rl 코드는 변경하지 않는다.
 3. edge_control의 최소 프로젝트 구조를 만든다.
-4. junction_test.yaml에서 산업용 PC 접속 정보와 레지스터 매핑을 읽는다.
+4. rectifier.yaml에서 산업용 PC 접속 정보와 레지스터 매핑을 읽는다.
 5. rectifier_voltage=Addr 5, rectifier_current=Addr 6을 주기적으로 읽는다.
 6. 원시값과 변환값을 콘솔 및 로그 파일에 기록한다.
 7. 통신 실패 시 Write 없이 해당 주기를 건너뛰고 재연결한다.

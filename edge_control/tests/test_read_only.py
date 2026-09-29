@@ -48,12 +48,12 @@ class ReadOnlyTests(unittest.TestCase):
     def records(self):
         return [json.loads(call.args[0]) for call in self.logger.info.call_args_list]
 
-    def test_unconfirmed_profiles_and_cli_never_connect(self):
-        for name in ("rectifier",):
-            with self.subTest(name=name), self.assertRaises(ConfigError):
-                load_config(EDGE / "configs" / f"{name}.yaml")
-        with patch("edge_control.src.main.ReadOnlyClient") as factory, patch("sys.stderr", io.StringIO()):
-            self.assertEqual(main(["--config", str(EDGE / "configs/rectifier.yaml")]), 2)
+    def test_rectifier_profile_is_loadable_and_config_check_never_connects(self):
+        config = load_config(EDGE / "configs/rectifier.yaml")
+        self.assertEqual(config.profile, "rectifier")
+        self.assertIn("set_voltage", {register.name for register in config.registers})
+        with patch("edge_control.src.main.ReadOnlyClient") as factory, patch("sys.stdout", io.StringIO()):
+            self.assertEqual(main(["--config", str(EDGE / "configs/rectifier.yaml"), "--check-config"]), 0)
             factory.assert_not_called()
 
     def test_invalid_configuration(self):
@@ -76,7 +76,7 @@ class ReadOnlyTests(unittest.TestCase):
                     load_config(path)
 
     def test_confirmed_safety_limits_and_invalid_values(self):
-        config_path = EDGE / "configs/junction_test.yaml"
+        config_path = EDGE / "configs/rectifier.yaml"
         config = load_config(config_path)
         self.assertEqual(config.safety_limits.min_set_voltage, 0.0)
         self.assertEqual(config.safety_limits.max_set_voltage, 60.0)
@@ -262,7 +262,8 @@ class ReadOnlyTests(unittest.TestCase):
 
     def mode_config(self):
         data = yaml.safe_load(FIXTURE.read_text(encoding="utf-8"))
-        modes = yaml.safe_load((EDGE / "configs/junction_test.yaml").read_text(encoding="utf-8"))
+        modes = yaml.safe_load((EDGE / "configs/rectifier.yaml").read_text(encoding="utf-8"))
+        data["address_base"] = modes["address_base"]
         for name in ("remote_mode", "operation_status", "operation_mode"):
             data["registers"][name] = modes["registers"][name]
         with patch("pathlib.Path.read_text", return_value=yaml.safe_dump(data)):
@@ -296,12 +297,12 @@ class ReadOnlyTests(unittest.TestCase):
         self.assert_no_write()
 
     def test_missing_mode_and_invalid_code_mapping_rejected(self):
-        data = yaml.safe_load((EDGE / "configs/junction_test.yaml").read_text(encoding="utf-8"))
+        data = yaml.safe_load((EDGE / "configs/rectifier.yaml").read_text(encoding="utf-8"))
         del data["registers"]["operation_mode"]
         with patch("pathlib.Path.read_text", return_value=yaml.safe_dump(data)):
             with self.assertRaises(ConfigError):
                 load_config(FIXTURE)
-        data = yaml.safe_load((EDGE / "configs/junction_test.yaml").read_text(encoding="utf-8"))
+        data = yaml.safe_load((EDGE / "configs/rectifier.yaml").read_text(encoding="utf-8"))
         data["registers"]["operation_status"]["codes"] = {0: False, 1: True}
         with patch("pathlib.Path.read_text", return_value=yaml.safe_dump(data)):
             with self.assertRaises(ConfigError):

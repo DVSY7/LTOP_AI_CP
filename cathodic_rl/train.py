@@ -19,6 +19,7 @@ from cathodic_rl.config.settings import (
 from cathodic_rl.env.cathodic_env import CathodicProtectionEnv
 from cathodic_rl.models.dqn_model import create_dqn_model
 from cathodic_rl.models.sac_model import create_sac_model
+from cathodic_rl.model_metadata import write_sac_metadata
 
 
 def train(*, steps=TOTAL_TRAINING_STEPS, seed=DEFAULT_RANDOM_SEED, output=None) -> Path:
@@ -63,12 +64,15 @@ def train(*, steps=TOTAL_TRAINING_STEPS, seed=DEFAULT_RANDOM_SEED, output=None) 
     )
 
     model.save(model_path)
+    metadata_path = write_sac_metadata(model_path) if RL_ALGORITHM == "sac" else None
 
     print(
         f"\n[{RL_ALGORITHM.upper()} 학습 완료]\n"
         f"모델 저장 위치: {model_path}.zip"
     )
 
+    if metadata_path is not None:
+        print(f"Candidate metadata: {metadata_path}")
     env.close()
     return model_path
 

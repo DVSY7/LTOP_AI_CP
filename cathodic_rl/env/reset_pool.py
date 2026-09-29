@@ -27,7 +27,13 @@ from cathodic_rl.env_model.preprocessing import (
     create_reset_candidates,
 )
 from cathodic_rl.env_model.environment_model import EnvironmentModel
-from cathodic_rl.config.settings import MAX_EPISODE_STEPS, SAC_MAX_DELTA_VOLTAGE
+from cathodic_rl.config.settings import (
+    MAX_EPISODE_STEPS,
+    SAC_MAX_DELTA_VOLTAGE,
+    VOLTAGE_REGISTER_STEP,
+)
+from cathodic_rl.safety.safety_filter import filter_voltage_action
+from cathodic_rl.voltage_quantization import quantized_target_delta, quantize_voltage
 
 
 # ============================================================
@@ -40,7 +46,7 @@ CACHE_DIR = ENV_DIR / "cache"
 
 RESET_POOL_CACHE_PATH = (
     CACHE_DIR
-    / "reachable_reset_pool_sac005_v2.csv"
+    / "reachable_reset_pool_sac050_step010_v3.csv"
 )
 
 
@@ -141,9 +147,8 @@ def initialize_environment_model(
     pipe_potential
     """
 
-    voltage = float(
-        row["Rectifier_Voltage"]
-    )
+    voltage = quantize_voltage(
+        float(row["Rectifier_Voltage"]), VOLTAGE_REGISTER_STEP)
 
     current = float(
         row["Rectifier_Current"]
@@ -239,11 +244,19 @@ def is_reachable(
         REACHABILITY_MAX_STEPS
     ):
 
+        # Use the same absolute-target quantization and Safety Filter sequence
+        # as CathodicProtectionEnv.step().
+        _, quantized_delta = quantized_target_delta(
+            voltage, delta_v, VOLTAGE_REGISTER_STEP)
+        safety_delta = filter_voltage_action(
+            current_voltage=voltage,
+            requested_delta_voltage=quantized_delta,
+        )
         result = (
             environment_model.predict_next_state(
                 V_t=voltage,
                 I_t=current,
-                delta_v=delta_v,
+                delta_v=safety_delta,
             )
         )
 

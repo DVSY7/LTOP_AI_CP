@@ -28,7 +28,8 @@ from cathodic_rl.config.settings import (
     MIN_PIPE_POTENTIAL,
     TEMP_CURRENT_PER_VOLT,
     TEMP_POTENTIAL_CHANGE_PER_VOLT,
-    SAC_MAX_DELTA_VOLTAGE
+    SAC_MAX_DELTA_VOLTAGE,
+    VOLTAGE_REGISTER_STEP,
 )
 
 from cathodic_rl.reward.reward_function import (
@@ -37,6 +38,7 @@ from cathodic_rl.reward.reward_function import (
 )
 
 from cathodic_rl.safety.safety_filter import filter_voltage_action
+from cathodic_rl.voltage_quantization import quantized_target_delta, quantize_voltage
 from shared.control_core import PolicyState, StateBounds, normalize_policy_state
 
 
@@ -147,7 +149,8 @@ class CathodicProtectionEnv(gym.Env):
         # ----------------------------------------------------
         # 환경 내부 상태값
         # ----------------------------------------------------
-        self.output_voltage: float = INITIAL_OUTPUT_VOLTAGE
+        self.output_voltage: float = quantize_voltage(
+            INITIAL_OUTPUT_VOLTAGE, VOLTAGE_REGISTER_STEP)
         self.output_current: float = INITIAL_OUTPUT_CURRENT
         self.pipe_potential: float = INITIAL_PIPE_POTENTIAL
 
@@ -396,9 +399,10 @@ class CathodicProtectionEnv(gym.Env):
         # 3. 같은 실제 시점의 V / I / TB로 상태 초기화
         # --------------------------------------------------------
 
-        self.output_voltage = float(
-            row["Rectifier_Voltage"]
-        )
+        # Reset also begins from a value that can actually be written to the
+        # 0.1 V Modbus register. This keeps training and edge operation aligned.
+        self.output_voltage = quantize_voltage(
+            float(row["Rectifier_Voltage"]), VOLTAGE_REGISTER_STEP)
 
         self.output_current = float(
             row["Rectifier_Current"]
@@ -572,6 +576,14 @@ class CathodicProtectionEnv(gym.Env):
             )
         )
 
+        # The PLC receives an absolute set voltage, not a delta. Quantize that
+        # target first so e.g. 42.3 - 0.05 remains 42.3 while +0.05 becomes 42.4.
+        _, quantized_delta_voltage = quantized_target_delta(
+            self.output_voltage,
+            requested_delta_voltage,
+            VOLTAGE_REGISTER_STEP,
+        )
+
 
         # --------------------------------------------------------
         # 3. 물리적 Safety Filter 적용
@@ -587,7 +599,7 @@ class CathodicProtectionEnv(gym.Env):
             filter_voltage_action(
                 current_voltage=self.output_voltage,
                 requested_delta_voltage=(
-                    requested_delta_voltage
+                    quantized_delta_voltage
                 ),
             )
         )
@@ -773,6 +785,9 @@ class CathodicProtectionEnv(gym.Env):
                 # Agent가 요청한 Delta_V
                 "requested_delta_voltage":
                     requested_delta_voltage,
+
+                # Delta after absolute target set-voltage quantization.
+                "quantized_delta_voltage": quantized_delta_voltage,
 
                 # Safety Filter 통과 후 Delta_V
                 "safety_delta_voltage":

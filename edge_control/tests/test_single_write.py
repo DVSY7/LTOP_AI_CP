@@ -7,6 +7,7 @@ from unittest.mock import Mock
 from edge_control.src.config_loader import load_config
 from edge_control.src.communication.test_writer import (
     TestWriteError,
+    decode_single_register,
     encode_single_register,
     perform_single_write,
 )
@@ -15,15 +16,21 @@ from edge_control.src.communication.test_writer import (
 class SingleWriteTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.config = load_config("edge_control/configs/junction_test.yaml")
+        cls.config = load_config("edge_control/configs/rectifier.yaml")
         cls.set_voltage = next(
             register for register in cls.config.registers if register.name == "set_voltage"
         )
 
     def test_engineering_value_encoding(self):
-        self.assertEqual(encode_single_register(45.0, self.set_voltage), 4500)
-        with self.assertRaises(TestWriteError):
-            encode_single_register(45.001, self.set_voltage)
+        self.assertEqual(encode_single_register(45.0, self.set_voltage), 450)
+        self.assertEqual(encode_single_register(45.001, self.set_voltage), 450)
+
+    def test_half_up_register_resolution(self):
+        register = replace(self.set_voltage, scale=0.1)
+        self.assertEqual(encode_single_register(44.19, register), 442)
+        self.assertEqual(decode_single_register(442, register), 44.2)
+        self.assertEqual(encode_single_register(44.25, register), 443)
+        self.assertEqual(decode_single_register(443, register), 44.3)
 
     def test_write_disabled_blocks_before_client_creation(self):
         factory = Mock()
@@ -45,16 +52,18 @@ class SingleWriteTests(unittest.TestCase):
         client.connect.return_value = True
         write_response = Mock()
         write_response.isError.return_value = False
-        read_response = Mock(registers=[4450])
+        read_response = Mock(registers=[445])
         read_response.isError.return_value = False
         client.write_register.return_value = write_response
         client.read_holding_registers.return_value = read_response
 
         result = perform_single_write(enabled, "set_voltage", 44.5, lambda *args, **kwargs: client)
 
-        self.assertEqual(result["raw_value"], 4450)
-        client.write_register.assert_called_once_with(20, 4450, device_id=1)
-        client.read_holding_registers.assert_called_once_with(20, count=1, device_id=1)
+        self.assertEqual(result["raw_value"], 445)
+        client.write_register.assert_called_once_with(
+            self.set_voltage.request_address, 445, device_id=1)
+        client.read_holding_registers.assert_called_once_with(
+            self.set_voltage.request_address, count=1, device_id=1)
         client.close.assert_called_once()
 
 

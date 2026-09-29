@@ -16,6 +16,8 @@ def write_control_target(config, target_set_voltage: float) -> dict:
     )
     return {
         **result,
-        "actual_write_voltage": target_set_voltage,
+        # applied_value is the engineering value encoded to the register's
+        # configured resolution and verified by read-back.
+        "actual_write_voltage": result["applied_value"],
         "read_back_verified": True,
     }

@@ -1,5 +1,6 @@
 """학습된 강화학습 모델 실행 및 동작 평가."""
 
+import argparse
 import numpy as np
 import time
 from pathlib import Path
@@ -11,7 +12,7 @@ if __package__ in {None, ""}:
 
 from cathodic_rl.config.settings import (
     DQN_MODEL_PATH,
-    SAC_MODEL_PATH,
+    SAC_CANDIDATE_MODEL_PATH,
     RL_ALGORITHM,
     TARGET_POTENTIAL_MAX,
     TARGET_POTENTIAL_MIN,
@@ -27,16 +28,22 @@ ACTION_NAMES = {
 }
 
 
-def evaluate() -> None:
+def evaluation_model_path(model_path: str | None = None) -> str:
+    """SAC evaluation defaults to the new candidate, not the active model."""
+    return model_path or (SAC_CANDIDATE_MODEL_PATH if RL_ALGORITHM == "sac" else DQN_MODEL_PATH)
+
+
+def evaluate(*, model_path: str | None = None, evaluation_steps: int = 500) -> None:
     """학습된 강화학습 모델을 불러와 가상환경에서 실행한다."""
 
+    selected_model_path = evaluation_model_path(model_path)
     if RL_ALGORITHM == "dqn":
         env = CathodicProtectionEnv(
             action_mode="discrete"
         )
 
         model = DQN.load(
-            DQN_MODEL_PATH,
+            selected_model_path,
             env=env,
         )
 
@@ -46,7 +53,7 @@ def evaluate() -> None:
         )
 
         model = SAC.load(
-            SAC_MODEL_PATH,
+            selected_model_path,
             env=env,
         )
 
@@ -55,11 +62,10 @@ def evaluate() -> None:
             f"지원하지 않는 RL 알고리즘입니다: {RL_ALGORITHM}"
         )
 
+    print(f"Model file: {Path(selected_model_path).with_suffix('.zip').resolve()}")
     observation, info = env.reset()
 
     total_reward = 0.0
-    evaluation_steps = 500
-
     print(
         f"\n[학습된 {RL_ALGORITHM.upper()} 모델 실행]"
     )
@@ -155,4 +161,10 @@ def evaluate() -> None:
 
 
 if __name__ == "__main__":
-    evaluate()
+    parser = argparse.ArgumentParser(description="Evaluate a saved SAC/DQN model")
+    parser.add_argument("--model", help="Model path with or without .zip")
+    parser.add_argument("--steps", type=int, default=500)
+    args = parser.parse_args()
+    if args.steps <= 0:
+        parser.error("--steps must be positive")
+    evaluate(model_path=args.model, evaluation_steps=args.steps)

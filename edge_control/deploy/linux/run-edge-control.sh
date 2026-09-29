@@ -5,6 +5,6 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="${EDGE_CONTROL_ROOT:-$(cd "$SCRIPT_DIR/../../.." && pwd)}"
 PYTHON_BIN="${EDGE_CONTROL_PYTHON:-$ROOT_DIR/.venv/bin/python}"
-CONFIG_FILE="${EDGE_CONTROL_CONFIG:-$ROOT_DIR/edge_control/configs/junction_test.yaml}"
+CONFIG_FILE="${EDGE_CONTROL_CONFIG:-$ROOT_DIR/edge_control/configs/rectifier.yaml}"
 
 exec "$PYTHON_BIN" -m edge_control.src.main --config "$CONFIG_FILE"

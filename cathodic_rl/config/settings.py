@@ -96,14 +96,19 @@ ACTION_TO_DELTA_VOLTAGE: dict[int, float] = {
 # 을 실제 정류기 전압 변화량으로 변환할 때 사용하는
 # V1 최대 변화량.
 #
-#   -1.0 → -0.20 V
+#   -1.0 → -0.50 V
 #    0.0 →  0.00 V
-#   +1.0 → +0.20 V
+#   +1.0 → +0.50 V
 #
 # EnvironmentModel의 Model Validity Guard가
 # 최종 전압 범위를 다시 제한한다.
 #
-SAC_MAX_DELTA_VOLTAGE: float = 0.05
+SAC_MAX_DELTA_VOLTAGE: float = 0.7
+
+# 실제 설정전압 Holding Register의 공학 단위 해상도 [V].
+# SAC action의 최대 변화량과 별도 값이다. 환경과 Reset Pool은 이 단위로
+# 절대 설정전압을 ROUND_HALF_UP 양자화한다.
+VOLTAGE_REGISTER_STEP: float = 0.1
 
 # ============================================================
 # 재현성 설정
@@ -117,9 +122,9 @@ DEFAULT_RANDOM_SEED: int = 42
 # ============================================================
 
 # 1차 프로토타입 학습 횟수
-TOTAL_TRAINING_STEPS: int = 10_000
-SAC_BUFFER_SIZE: int =10_000
-SAC_LEARNING_STARTS: int = 2_000
+TOTAL_TRAINING_STEPS: int = 100_000
+SAC_BUFFER_SIZE: int = 50_000
+SAC_LEARNING_STARTS: int = 5_000
 SAC_ENT_COEF: str = "auto"
 
 # 학습된 모델 저장 경로. 현재 작업 디렉터리가 아니라 cathodic_rl 기준이다.
@@ -129,7 +134,10 @@ _PROJECT_DIR = Path(__file__).resolve().parent.parent
 DQN_MODEL_PATH: str = str(_PROJECT_DIR / "models" / "trained" / "cathodic_dqn")
 SAC_MODEL_PATH: str = str(_PROJECT_DIR / "models" / "trained" / "cathodic_sac")
 SAC_CANDIDATE_MODEL_PATH: str = str(
-    _PROJECT_DIR / "models" / "trained" / "cathodic_sac_4state_candidate"
+    _PROJECT_DIR / "models" / "trained" / "cathodic_sac_4state_dv070_step100000_candidate"
+)
+SAC_CANDIDATE_METADATA_PATH: str = str(
+    _PROJECT_DIR / "models" / "trained" / "cathodic_sac_4state_dv070_step100000_candidate.metadata.yaml"
 )
 
 # 사용할 학습모델(알고리즘) 선택

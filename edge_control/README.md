@@ -10,8 +10,8 @@ Action 후보와 Safety Filter 결과를 기록한다. AI 추론과 Reward는 �
 현재 프로젝트는 `cathodic_rl/.venv` 가상환경을 공용으로 사용한다.
 
 ```powershell
-cathodic_rl/.venv/Scripts/python.exe -m edge_control.src.main --config edge_control/configs/junction_test.yaml --check-config
-cathodic_rl/.venv/Scripts/python.exe -m edge_control.src.main --config edge_control/configs/junction_test.yaml
+cathodic_rl/.venv/Scripts/python.exe -m edge_control.src.main --config edge_control/configs/rectifier.yaml --check-config
+cathodic_rl/.venv/Scripts/python.exe -m edge_control.src.main --config edge_control/configs/rectifier.yaml
 ```
 
 `--check-config`는 통신 없이 설정만 검사한다. `--max-cycles 10`을 추가하면 10주기 후 종료한다.
@@ -19,7 +19,7 @@ cathodic_rl/.venv/Scripts/python.exe -m edge_control.src.main --config edge_cont
 
 Linux edge 장비 배포와 systemd 자동 실행 절차는 [deploy/linux README](deploy/linux/README.md)에 정리했다.
 
-현재 `junction_test.yaml`은 사용자 확인과 TCP 읽기 시험에 맞춘 활성 시험 설정이다.
+현재 `rectifier.yaml`은 정류기 HMI의 TCP 연결과 레지스터 매핑을 담은 활성 설정이다.
 필수 `null` 값을 확인하여 채워야 실제 연결을 시작한다. `rectifier.yaml`은 추가로 `enabled: false`이다.
 일반 수집기는 `write_enabled: true` 설정을 거부한다. 시험용 단일 Write는 별도 명령과 이중 활성화가 필요하다.
 
@@ -85,7 +85,7 @@ cathodic_rl/.venv/Scripts/python.exe -m unittest discover -s edge_control/tests 
 
 ## 정션 운전 상태 읽기
 
-사용자가 확인한 TCP 주소와 코드값을 `junction_test.yaml`에 추가했다.
+확정한 TCP 주소와 코드값은 `rectifier.yaml`에서 관리한다.
 
 | 논리 이름 | 주소 | 코드 |
 |---|---:|---|
@@ -102,7 +102,7 @@ MANUAL을 포함한 모든 상태에서 Action 생성과 Write는 수행하지 �
 각 신호는 순차 읽기이므로 이 로그는 제어 시점의 원자적 모드 확인을 대신하지 않는다.
 
 ```powershell
-python -m edge_control.src.main --config edge_control/configs/junction_test.yaml --max-cycles 3
+python -m edge_control.src.main --config edge_control/configs/rectifier.yaml --max-cycles 3
 ```
 
 HMI 상태와 로그의 states를 대조하여 확인한다. 모의 시험은 LOCAL/OFF/AI,
@@ -124,11 +124,11 @@ REMOTE/ON/MANUAL, 미정의 코드, 통신 실패, 복구 및 Write 호출 0회�
 한 번 Write하고 같은 주소를 즉시 Read-back한다. 일반 수집 루프와 분리되어 있으며 반복 Write를 하지 않는다.
 
 실행하려면 YAML의 `write_enabled`를 명시적으로 `true`로 바꾸고 확인 문자열도 전달해야 한다.
-현재 `junction_test.yaml`은 `false`이므로 아래 명령을 실행해도 장비에 연결하기 전에 차단된다.
+`write_enabled: false`인 설정에서는 아래 명령을 실행해도 장비에 연결하기 전에 차단된다.
 
 ```powershell
 python -m edge_control.src.test_write `
-  --config edge_control/configs/junction_test.yaml `
+  --config edge_control/configs/rectifier.yaml `
   --signal set_voltage `
   --value 45.0 `
   --confirm I_UNDERSTAND_SINGLE_TEST_WRITE
@@ -150,7 +150,7 @@ python -m edge_control.src.test_write `
 기존 `cathodic_rl/safety/safety_filter.py`도 이 공통 모듈을 호출하되 기존 함수 인터페이스는 유지한다.
 
 확인된 안전 한계는 설정전압 0~60 V, 제어 주기당 최대 변화량 ±3 V다.
-`junction_test.yaml`의 `safety`에서 이 값을 관리하며 설정 로더가 범위와 필수값을 검증한다.
+`rectifier.yaml`의 `safety`에서 이 값을 관리하며 설정 로더가 범위와 필수값을 검증한다.
 현재는 Read-only 단계이므로 Safety Filter가 Action을 계산하거나 Write를 수행하지 않는다.
 
 ```powershell
@@ -208,7 +208,7 @@ AI Action 로그에 실제 모델 입력인 `normalized_state`를 기록한다.
 
 ## AI Shadow Mode
 
-`junction_test.yaml`은 `sac-4state-v1` 메타데이터를 사용해 AI Shadow Mode를 실행한다.
+`rectifier.yaml`의 `ai.metadata_file`은 사용할 SAC 메타데이터를 지정한다.
 시작할 때 모델 SHA-256, State 필드 순서, 입력 차원 `(4,)`, Action 차원 `(1,)`을 검증한다.
 AI 모드의 첫 정상 주기는 TB trend 준비를 위해 Action을 만들지 않고, 두 번째 연속 정상
 주기부터 결정론적 SAC 추론을 수행한다.

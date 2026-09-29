@@ -25,9 +25,8 @@ AI_CP/
 ## 1. Windows에서 배포 파일 만들기
 
 AI_CP 루트 PowerShell에서 실행한다.
-
 ```powershell
-tar -czf ai_cp-edge.tar.gz `
+tar -czf ./edge_control/deploy/linux/ai_cp-edge.tar.gz `
   edge_control/src edge_control/configs edge_control/deploy `
   edge_control/requirements.txt edge_control/__init__.py `
   shared/control_core shared/__init__.py `
@@ -36,7 +35,18 @@ tar -czf ai_cp-edge.tar.gz `
 
 이 파일을 edge 장비의 임시 경로로 복사한다.
 
-## 2. Linux에서 설치
+## 2. scp로 파일전송
+생성된 tar파일을 scp로 전송하는 방법
+
+AI_CP 루트 PowerShell에서 실행한다
+```powershell
+  scp ./edge_control/deploy/linux/ai_cp-edge.tar.gz linux사용자@IP주소:보내는 위치
+  예시
+  scp ./edge_control/deploy/linux/ai_cp-edge.tar.gz sangyeolkim@192.168.1.3:/opt/
+```
+
+
+## 3. Linux에서 설치
 
 아래 예시는 `/opt/ai_cp`에 설치하고 `edgecontrol` 사용자로 실행하는 경우다.
 
@@ -54,9 +64,9 @@ python3 -m venv .venv
 
 `python3 -m venv`가 없다면 배포판의 `python3-venv` 패키지를 먼저 설치한다.
 
-## 3. 부팅 서비스 등록 전 수동 시험
+## 4. 부팅 서비스 등록 전 수동 시험
 
-`junction_test.yaml`의 현재 값은 자동 Write가 활성화되어 있다. 연결·로그 시험만 한다면 먼저 아래처럼 설정한다.
+`rectifier.yaml`의 현재 값은 자동 Write가 활성화되어 있다. 연결·로그 시험만 한다면 먼저 아래처럼 설정한다.
 
 ```yaml
 write_enabled: false
@@ -71,15 +81,15 @@ control:
 ```bash
 cd /opt/ai_cp
 .venv/bin/python -m edge_control.src.main \
-  --config edge_control/configs/junction_test.yaml --check-config
+  --config edge_control/configs/rectifier.yaml --check-config
 
 .venv/bin/python -m edge_control.src.main \
-  --config edge_control/configs/junction_test.yaml --max-cycles 3
+  --config edge_control/configs/rectifier.yaml --max-cycles 3
 ```
 
 로그는 `edge_control/logs/junction_test.jsonl`에 남는다. 수동 시험에서 레지스터 값·Guard·로그를 확인한 뒤에만 Write 관련 YAML 값을 다시 활성화한다.
 
-## 4. systemd 자동 실행 등록
+## 5. systemd 자동 실행 등록
 
 수동 시험이 끝난 뒤에만 서비스 파일을 설치한다.
 
